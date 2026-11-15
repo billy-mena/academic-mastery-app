@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QuizForge PH – DepEd-Aligned Flashcard Quiz &amp; Mastery App (Free, GitHub Pages)</title>
+<meta name="description" content="Turn DepEd Self-Learning Modules, notes, PDFs and videos into quizzes. Four quiz modes, DepEd Order 8 s. 2015 transmuted grades, and a mastery loop until 100%. Free, private, runs in your browser.">
+<meta name="robots" content="index,follow">
+<meta name="theme-color" content="#1e3a5f">
+<meta property="og:type" content="website">
+<meta property="og:title" content="QuizForge PH – DepEd-Aligned Quiz &amp; Mastery App">
+<meta property="og:description" content="Import DepEd modules and notes, practice with four quiz modes, and master every item. Free and private.">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"QuizForge PH","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>tailwind.config={darkMode:'class'}</script>
+<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+<style type="text/tailwindcss">
+@layer components{
+.b1{@apply px-5 min-h-[48px] rounded-xl bg-blue-900 hover:bg-blue-800 text-white font-semibold dark:bg-amber-400 dark:text-slate-900 dark:hover:bg-amber-300}
+.b2{@apply px-4 min-h-[48px] rounded-xl border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800}
+.opt{@apply text-left w-full min-h-[56px] p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-blue-700 transition}
+.inp{@apply w-full p-3 min-h-[48px] rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800}
+.ok{@apply bg-emerald-200 dark:bg-emerald-800 border-emerald-500 opacity-70}
+.good{@apply bg-emerald-200 dark:bg-emerald-800 border-emerald-500}
+.bad{@apply bg-rose-200 dark:bg-rose-900 border-rose-500}
+.sel{@apply ring-4 ring-amber-400}
+.card{@apply bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700}
+}
+</style>
+<style>
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.shake{animation:shake .35s}
+body{font-family:Georgia,'Times New Roman',serif}
+button,input,select,textarea{font-family:system-ui,sans-serif}
+@media(prefers-reduced-motion:reduce){.shake{animation:none}}
+#pr{display:none}@media print{body>*:not(#pr){display:none!important}#pr{display:block!important;color:#000;background:#fff}}
+</style>
+</head>
+<body class="bg-stone-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen">
+<header class="max-w-3xl mx-auto p-4 flex flex-wrap items-center gap-2 justify-between">
+<h1 class="text-3xl font-bold">QuizForge PH</h1>
+<nav class="flex flex-wrap gap-2" aria-label="Main">
+<button class="b2" onclick="show('import')">Import</button>
+<button class="b2" onclick="show('edit')">Deck</button>
+<button class="b2" onclick="show('setup')">Quiz</button>
+<button class="b2" onclick="toggleDark()" aria-label="Toggle dark mode">◐</button>
+<button class="b2" onclick="openSet()">Settings</button>
+</nav>
+</header>
+<main class="max-w-3xl mx-auto p-4">
+<noscript>QuizForge needs JavaScript to turn your notes into practice quizzes.</noscript>
+
+<section id="v-import" aria-labelledby="h-imp" class="grid gap-5">
+<h2 id="h-imp" class="text-2xl font-semibold">Import study material</h2>
+<div class="card">
+<h3 class="font-semibold mb-2">Paste notes, a transcript, or "Term - Definition" lines</h3>
+<textarea id="paste" rows="7" class="inp" placeholder="Mitosis - cell division that produces two identical cells&#10;Photosynthesis refers to how plants turn light into energy"></textarea>
+<div class="flex flex-wrap gap-2 mt-3"><button class="b1" onclick="fromPaste()">Build cards from text</button><span class="self-center text-sm opacity-70">Facebook posts: paste the text here — links, reactions and hashtags are cleaned automatically.</span></div>
+</div>
+<div class="card">
+<h3 class="font-semibold mb-2">Link: Google Sheet or Doc (public), YouTube, article</h3>
+<div class="flex flex-wrap gap-2"><input id="url" type="url" class="inp flex-1 min-w-[220px]" placeholder="https://docs.google.com/spreadsheets/d/…"><button class="b1" onclick="fetchUrl()">Fetch</button></div>
+<button class="b2 mt-3" onclick="drivePick()">Pick a file from Google Drive</button><div id="yt" class="mt-3"></div>
+</div>
+<div class="card">
+<h3 class="font-semibold mb-2">Upload files</h3>
+<label id="drop" class="block text-center p-8 rounded-xl border-2 border-dashed border-slate-400 cursor-pointer min-h-[48px]">
+Drop files here or tap to choose<br><span class="text-sm opacity-70">CSV, TSV, XLSX, JSON, TXT, MD, RTF, DOCX, PDF, PPTX, PNG, JPG, WEBP</span>
+<input id="files" type="file" multiple class="sr-only" accept=".csv,.tsv,.xlsx,.xls,.json,.txt,.md,.rtf,.docx,.pdf,.pptx,.png,.jpg,.jpeg,.webp">
+</label>
+</div>
+</section>
+
+<section id="v-edit" class="hidden" aria-label="Deck editor"></section>
+<section id="v-setup" class="hidden" aria-label="Quiz setup"></section>
+<section id="v-quiz" class="hidden" aria-label="Quiz"><div id="qh"></div><div id="qb"></div><div id="fb" aria-live="polite"></div></section>
+<section id="v-result" class="hidden" aria-label="Results"></section>
+</main>
+
+<dialog id="set" class="rounded-2xl p-6 w-[92%] max-w-md bg-white dark:bg-slate-800 dark:text-slate-100">
+<h2 class="text-xl font-semibold mb-3">Settings</h2>
+<div class="grid gap-3">
+<label>Gemini API key (optional)<input id="gk" type="password" class="inp" autocomplete="off"></label>
+<label>Google Client ID<input id="gc" class="inp" autocomplete="off"></label>
+<label>Google API Key<input id="ga" type="password" class="inp" autocomplete="off"></label>
+<label>Google App ID (project number)<input id="gp" class="inp" autocomplete="off"></label>
+<div class="card"><p class="text-sm">Add this origin under “Authorized JavaScript origins” in Google Cloud Console:</p><code id="org" class="block break-all my-2"></code><button class="b2" onclick="navigator.clipboard.writeText(location.origin).then(()=>toast('Origin copied'))">Copy Origin URL for Google Cloud OAuth</button></div>
+</div>
+<p class="text-sm opacity-70 mt-2">Keys stay in this browser only. Without a Gemini key the offline parser is used.</p>
+<div class="flex gap-2 mt-4"><button class="b1" onclick="saveSet()">Save</button><button class="b2" onclick="$('#set').close()">Close</button></div>
+</dialog>
+<dialog id="sh" class="rounded-2xl p-6 w-[92%] max-w-md bg-white dark:bg-slate-800 dark:text-slate-100"><h2 class="text-xl font-semibold mb-2">Share quiz links</h2><p class="text-sm mb-3">Your deck is too big for one link, so it is split. Send every part; each one adds its cards to your classmate’s deck.</p><div id="shl" class="grid gap-2"></div><button class="b2 mt-3" onclick="$('#sh').close()">Close</button></dialog>
+<div id="pr"></div>
+<div id="toast" class="hidden" role="status"></div>
+<footer class="max-w-3xl mx-auto p-4 text-sm opacity-60">QuizForge runs entirely in your browser. Your decks stay on your device.</footer>
+
+<script>
+//<pure>
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const norm=s=>String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\p{L}\p{N}\s]/gu,' ').replace(/\s+/g,' ').trim();
+function lev(a,b){const m=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=m[0];m[0]=i;for(let j=1;j<=b.length;j++){const t=m[j];m[j]=Math.min(m[j]+1,m[j-1]+1,p+(a[i-1]==b[j-1]?0:1));p=t}}return m[b.length]}
+function grade(g,a,s){g=norm(g);a=norm(a);if(!g)return false;if(g===a)return true;if(s=='exact')return false;
+ if(s=='keyword'){const k=a.split(' ').filter(w=>w.length>3);return k.length>0&&k.filter(w=>g.includes(w)).length/k.length>=.6}
+ return lev(g,a)<=Math.max(1,Math.floor(a.length*.15))}
+function cleanText(t){return t.replace(/https?:\/\/\S+/g,'').replace(/^\s*(See more|See less|Like|Comment|Share|Most relevant|All reactions:.*)\s*$/gim,'').replace(/#\w+/g,'').replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n').trim()}
+function heuristic(t){const out=[],seen=new Set();let comp='';
+ const add=(a,b,g)=>{a=(a||'').replace(/[*_`#]/g,'').replace(/^\s*\d+[.)]\s*/,'').trim();b=(b||'').replace(/[*_`]/g,'').trim();if(a&&b&&a.length<120&&!seen.has(a.toLowerCase())){seen.add(a.toLowerCase());out.push({term:a,definition:b,competency:comp,cog:g||'Remembering',quarter:''})}};
+ for(const line of t.split(/\r?\n/)){const l=line.trim();if(!l)continue;
+  let m=l.match(/^(?:most essential )?learning competenc(?:y|ies)\s*[:\-–—]\s*(.+)$/i);if(m){comp=m[1].slice(0,200);continue}
+  m=l.match(/^(.+?)\t+(.+)$/)||l.match(/^[*\s\d.)]*\**([^:=*]+?)\**\s*(?:\s[-–—]\s|:|=)\s*(.+)$/);
+  if(m){add(m[1],m[2]);continue}
+  for(const s of l.split(/(?<=[.!?])\s+/)){m=s.match(/^(.{2,80}?)\s+(?:is defined as|are defined as|refers to|refer to|means|is called)\s+(.{8,})$/i);if(m)add(m[1],m[2],'Understanding')}}
+ return out}
+const transmute=ps=>ps>=100?100:ps>=60?Math.min(99,75+Math.floor((ps-60)/1.6+1e-9)):60+Math.floor(ps/4+1e-9);
+const descr=g=>g>=90?'Outstanding':g>=85?'Very Satisfactory':g>=80?'Satisfactory':g>=75?'Fairly Satisfactory':'Did Not Meet Expectations';
+const cogGroup=c=>/^(Remembering|Understanding)$/.test(c)?'Remembering & Understanding':/^(Applying|Analyzing)$/.test(c)?'Applying & Analyzing':'Evaluating & Creating';
+const mst=c=>(c.fm||[]).length>=2?'Mastered':c.cor>0?'Familiar':c.seen?'Learning':'Unseen';
+function splitDeck(a,len,max){const out=[];let cur=[];for(const c of a){const t=[...cur,c];if(cur.length&&len(t)>max){out.push(cur);cur=[c]}else cur=t}if(cur.length)out.push(cur);return out}
+//</pure>
+const $=s=>document.querySelector(s);
+const LS={get:(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+let deck=LS.get('qf_deck',[]),cfg=Object.assign({gemini:'',strict:'lenient',formats:['mc','written','tf','match'],dir:'mixed',feedback:'instant',count:0,dark:false,mode:'formative'},LS.get('qf_cfg',{})),best=LS.get('qf_best',{}),Q=null;
+const save=()=>{LS.set('qf_deck',deck);LS.set('qf_cfg',cfg);LS.set('qf_best',best)};
+let tt;function toast(m,k){const t=$('#toast');t.textContent=m;t.className='fixed bottom-4 left-1/2 -translate-x-1/2 max-w-[92%] px-4 py-3 rounded-xl text-white shadow-lg z-50 '+(k=='err'?'bg-rose-700':'bg-slate-800');clearTimeout(tt);tt=setTimeout(()=>t.className='hidden',k=='keep'?90000:4500)}
+const dec=s=>{const t=document.createElement('textarea');t.innerHTML=s;return t.value};
+const P=(c,d)=>d=='td'?c.term:c.definition,A=(c,d)=>d=='td'?c.definition:c.term;
+const V=['import','edit','setup','quiz','result'];
+function show(v){V.forEach(x=>$('#v-'+x).classList.toggle('hidden',x!=v));if(v=='edit')renderEdit();if(v=='setup')renderSetup();scrollTo(0,0)}
+function toggleDark(){cfg.dark=!cfg.dark;document.documentElement.classList.toggle('dark',cfg.dark);save()}
+document.documentElement.classList.toggle('dark',cfg.dark);
+
+/* ---------- Libraries & file parsing ---------- */
+const L={xlsx:'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',mammoth:'https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js',jszip:'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',pdf:'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js',pdfw:'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js',tess:'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js',gsi:'https://accounts.google.com/gsi/client',gapi:'https://apis.google.com/js/api.js'};
+const loaded={};const lib=k=>loaded[k]||(loaded[k]=new Promise((ok,no)=>{const s=document.createElement('script');s.src=L[k];s.onload=ok;s.onerror=()=>{delete loaded[k];no(new Error('library '+k+' failed to load — check your connection'))};document.head.appendChild(s)}));
+const rowsToPairs=r=>r.filter(x=>x[0]&&x[1]).map(x=>({term:String(x[0]),definition:String(x[1]),competency:x[2]?String(x[2]):'',cog:x[3]?String(x[3]):'Remembering',quarter:x[4]?String(x[4]):''})).filter(p=>!/^(term|front|word|question)$/i.test(p.term));
+async function readFile(f){const e=f.name.split('.').pop().toLowerCase();
+ if(['txt','md','rtf'].includes(e)){const t=await f.text();return{text:e=='rtf'?t.replace(/\\par[d]?/g,'\n').replace(/\\'[0-9a-f]{2}|\\[a-z]+-?\d* ?|[{}]/gi,''):t}}
+ if(['csv','tsv','xlsx','xls'].includes(e)){await lib('xlsx');const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});return{pairs:rowsToPairs(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1}))}}
+ if(e=='json'){const j=JSON.parse(await f.text()),a=Array.isArray(j)?j:j.cards||[];const p=a.map(o=>Array.isArray(o)?{term:o[0],definition:o[1]}:{term:o.term??o.front??o.question,definition:o.definition??o.back??o.answer,competency:o.competency||'',cog:o.cog||o.cognitiveLevel||'Remembering',quarter:o.quarter||''}).filter(o=>o.term&&o.definition);return p.length?{pairs:p}:{text:JSON.stringify(j)}}
+ if(e=='docx'){await lib('mammoth');return{text:(await mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value}}
+ if(e=='pdf'){await lib('pdf');pdfjsLib.GlobalWorkerOptions.workerSrc=L.pdfw;const d=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;let t='';for(let i=1;i<=d.numPages;i++){toast(`Reading PDF page ${i} of ${d.numPages}…`,'keep');const c=await(await d.getPage(i)).getTextContent();t+=c.items.map(x=>x.str+(x.hasEOL?'\n':'')).join(' ')+'\n'}return{text:t}}
+ if(e=='pptx'){await lib('jszip');const z=await JSZip.loadAsync(await f.arrayBuffer());const ns=Object.keys(z.files).filter(n=>/^ppt\/slides\/slide\d+\.xml$/.test(n)).sort((a,b)=>a.match(/\d+/)[0]-b.match(/\d+/)[0]);let t='';for(const n of ns){const x=await z.files[n].async('string');t+=x.split('</a:p>').map(p=>[...p.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map(m=>m[1]).join('')).filter(Boolean).join('\n')+'\n'}return{text:dec(t)}}
+ if(['png','jpg','jpeg','webp'].includes(e)){await lib('tess');const r=await Tesseract.recognize(f,'eng',{logger:m=>m.status=='recognizing text'&&toast('Reading image… '+Math.round(m.progress*100)+'%','keep')});return{text:r.data.text}}
+ throw new Error('unsupported file type')}
+async function handleFiles(fl){let Pp=[],T='';for(const f of fl){try{toast('Reading '+f.name+'…','keep');const r=await readFile(f);if(r.pairs)Pp.push(...r.pairs);else T+=r.text+'\n'}catch(e){toast(f.name+': '+(e.message||'could not be read'),'err')}}await ingest(T,Pp)}
+$('#files').onchange=e=>handleFiles([...e.target.files]);
+const dz=$('#drop');dz.ondragover=e=>{e.preventDefault();dz.classList.add('sel')};dz.ondragleave=()=>dz.classList.remove('sel');dz.ondrop=e=>{e.preventDefault();dz.classList.remove('sel');handleFiles([...e.dataTransfer.files])};
+
+/* ---------- Extraction ---------- */
+async function gemini(text){const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+encodeURIComponent(cfg.gemini),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:'Follow DepEd MATATAG curriculum principles. Extract foundational concepts, vocabulary and higher-order comprehension pairs from this study text as flashcards, prioritizing essential learning competencies over trivia. Return only a JSON array of {"term","definition","competency","cognitiveLevel"} where cognitiveLevel is Remembering, Understanding, Applying or Analyzing.\n\n'+text.slice(0,30000)}]}],generationConfig:{responseMimeType:'application/json',responseSchema:{type:'ARRAY',items:{type:'OBJECT',properties:{term:{type:'STRING'},definition:{type:'STRING'},competency:{type:'STRING'},cognitiveLevel:{type:'STRING',enum:['Remembering','Understanding','Applying','Analyzing']}},required:['term','definition']}}}})});
+ const j=await r.json();return JSON.parse(j.candidates[0].content.parts[0].text)}
+async function ingest(text,pairs){let p=[...(pairs||[])];
+ if(text&&text.trim()){let x=[];if(cfg.gemini){try{toast('AI is extracting key terms…','keep');x=await gemini(text)}catch{toast('AI extraction failed — using the built-in parser','err')}}if(!x.length)x=heuristic(text);p.push(...x)}
+ p=p.filter(x=>x.term&&x.definition).map(x=>({term:x.term,definition:x.definition,competency:x.competency||'',cog:x.cog||x.cognitiveLevel||'Remembering',quarter:x.quarter||''}));
+ if(!p.length)return toast('No cards found. Use "Term - Definition" lines, or add a Gemini key in Settings for free-form notes.','err');
+ const n=p.filter(x=>!deck.some(d=>d.term.toLowerCase()==x.term.toLowerCase()));deck.push(...n);save();toast(`Added ${n.length} cards`);show('edit')}
+const fromPaste=()=>ingest(cleanText($('#paste').value));
+
+/* ---------- Links ---------- */
+const prox=async u=>{const r=await fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(u));if(!r.ok)throw 0;return r.text()};
+async function fetchUrl(){const u=$('#url').value.trim();if(!u)return;toast('Fetching…','keep');
+ try{let m;
+  if(m=u.match(/(?:youtu\.be\/|v=|shorts\/)([\w-]{11})/))return await doYT(m[1],u);
+  if(m=u.match(/docs\.google\.com\/(spreadsheets|document)\/d\/([\w-]+)/)){const sh=m[1]=='spreadsheets',g=(u.match(/gid=(\d+)/)||[])[1];const x=sh?`https://docs.google.com/spreadsheets/d/${m[2]}/export?format=csv${g?'&gid='+g:''}`:`https://docs.google.com/document/d/${m[2]}/export?format=txt`;let t;try{t=await(await fetch(x)).text()}catch{t=await prox(x)}
+   if(sh){await lib('xlsx');const wb=XLSX.read(t,{type:'string'});return ingest('',rowsToPairs(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1})))}
+   return ingest(t)}
+  const d=new DOMParser().parseFromString(await prox(u),'text/html');d.querySelectorAll('script,style,nav,footer').forEach(e=>e.remove());
+  const t=[d.title,d.querySelector('meta[property="og:description"]')?.content,...[...d.querySelectorAll('h1,h2,h3,p,li')].map(e=>e.textContent.trim())].filter(Boolean).join('\n');
+  if(t.length<80)throw 0;return ingest(cleanText(t))
+ }catch{toast('That link can’t be read automatically (Facebook and some sites block it). Copy the text, paste it above, then press “Build cards from text”.','err');$('#paste').focus()}}
+async function doYT(id,u){$('#yt').innerHTML=`<iframe class="w-full aspect-video rounded-xl" src="https://www.youtube-nocookie.com/embed/${id}" title="Video player" allowfullscreen></iframe><p id="ytt" class="mt-2 text-sm"></p>`;
+ try{const o=await(await fetch('https://www.youtube.com/oembed?format=json&url='+encodeURIComponent(u))).json();$('#ytt').textContent=o.title+' — '+o.author_name}catch{}
+ try{const h=await prox('https://www.youtube.com/watch?v='+id),m=h.match(/"captionTracks":\[\{"baseUrl":"(.*?)"/);if(!m)throw 0;const x=await prox(JSON.parse('"'+m[1]+'"'));const t=[...x.matchAll(/<text[^>]*>([\s\S]*?)<\/text>/g)].map(a=>dec(dec(a[1]))).join(' ');if(t.length<50)throw 0;return ingest(t)}
+ catch{toast('Captions are restricted for this video. Watch it here, then paste your notes or the transcript above.','err');$('#paste').focus()}}
+
+/* ---------- Deck editor ---------- */
+const COG=['Remembering','Understanding','Applying','Analyzing','Evaluating','Creating'];
+function renderEdit(){$('#v-edit').innerHTML=`<h2 class="text-2xl font-semibold mb-3">Study Studio <span class="text-base font-normal opacity-70">${deck.length} cards</span></h2>
+${deck.length?'':'<p class="mb-3">Your deck is empty. Import study material or add a card.</p>'}
+<div class="grid gap-3">${deck.map((c,i)=>`<div class="card grid gap-2"><div class="grid gap-2 sm:grid-cols-[1fr_2fr_auto] items-start"><input class="inp" aria-label="Term ${i+1}" value="${esc(c.term)}" onchange="deck[${i}].term=this.value;save()"><textarea rows="2" class="inp" aria-label="Definition ${i+1}" onchange="deck[${i}].definition=this.value;save()">${esc(c.definition)}</textarea><button class="b2" aria-label="Delete card ${i+1}" onclick="deck.splice(${i},1);save();renderEdit()">✕</button></div><div class="grid gap-2 sm:grid-cols-3"><input class="inp" aria-label="Learning competency" placeholder="Learning competency" value="${esc(c.competency||'')}" onchange="deck[${i}].competency=this.value;save()"><select class="inp" aria-label="Quarter" onchange="deck[${i}].quarter=this.value;save()">${['','Q1','Q2','Q3','Q4'].map(q=>`<option value="${q}" ${c.quarter==q?'selected':''}>${q||'Quarter'}</option>`).join('')}</select><select class="inp" aria-label="Cognitive process" onchange="deck[${i}].cog=this.value;save()">${COG.map(g=>`<option ${c.cog==g?'selected':''}>${g}</option>`).join('')}</select></div></div>`).join('')}</div>
+<div class="flex flex-wrap gap-2 mt-4"><button class="b2" onclick="deck.push({term:'',definition:'',competency:'',cog:'Remembering',quarter:''});save();renderEdit()">Add card</button><button class="b2" onclick="deck.forEach(c=>[c.term,c.definition]=[c.definition,c.term]);save();renderEdit()">Swap terms and definitions</button><button class="b2" onclick="dl('deck.json','application/json',JSON.stringify(deck,null,2))">Export JSON</button><button class="b2" onclick="expCSV()">Export CSV</button><button class="b2" onclick="shareLink()">Share quiz link</button><button class="b2" onclick="copyText()">Copy as text</button><button class="b2" onclick="copySheet()">Copy for Google Sheets</button><button class="b2" onclick="sheetSave()">Save to Google Sheets</button><button class="b2" onclick="printDeck()">Print</button><button class="b2" onclick="if(confirm('Delete all cards?')){deck=[];save();renderEdit()}">Clear deck</button><button class="b1" onclick="show('setup')">Set up quiz</button></div>`}
+function dl(n,m,d){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([d],{type:m}));a.download=n;a.click()}
+
+/* ---------- Quiz setup & engine ---------- */
+function renderSetup(){const sel=(k,o)=>`<label class="block"><span class="block mb-1">${o[0]}</span><select class="inp" onchange="cfg.${k}=this.value;save()">${o[1].map(([a,b])=>`<option value="${a}" ${cfg[k]==a?'selected':''}>${b}</option>`).join('')}</select></label>`;
+ const f=(k,l)=>`<label class="flex items-center gap-3 min-h-[48px]"><input type="checkbox" class="w-6 h-6" ${cfg.formats.includes(k)?'checked':''} onchange="cfg.formats=this.checked?[...new Set([...cfg.formats,'${k}'])]:cfg.formats.filter(x=>x!='${k}');save()">${l}</label>`;
+ const b=best[deck.length+':'+(deck[0]?.term||'')],st={Unseen:0,Learning:0,Familiar:0,Mastered:0};deck.forEach(c=>st[mst(c)]++);const left=deck.length-st.Mastered;
+ $('#v-setup').innerHTML=`<h2 class="text-2xl font-semibold mb-3">Quiz setup</h2><p class="mb-3">${deck.length} cards${b!=null?` · best score ${b}%`:''}</p>
+<div class="card mb-4"><h3 class="font-semibold mb-2">Mastery</h3><p>${Object.entries(st).map(([k,v])=>k+': '+v).join(' · ')}</p>${left&&deck.length?`<button class="b1 mt-3" onclick="startMastery()">Mastery &amp; Remediation Round (${left} left)</button>`:deck.length?'<p class="mt-2">100% mastery. Well done!</p>':''}<button class="b2 mt-3" onclick="if(confirm('Reset all mastery progress?')){deck.forEach(c=>{c.fm=[];c.cor=0;c.seen=false;c.att=0;c.tc=0});save();renderSetup()}">Reset progress</button></div>
+<div class="card grid gap-3">${sel('mode',['Assessment mode',[['formative','Formative: practice with hints and feedback'],['summative','Summative: written work, no hints']]])}<fieldset><legend class="font-semibold mb-1">Question types</legend>${f('mc','Multiple choice')}${f('written','Written answer')}${f('tf','True / False')}${f('match','Matching')}</fieldset>
+${sel('dir',['Question direction',[['mixed','Mixed'],['td','Term → Definition'],['dt','Definition → Term']]])}
+${sel('strict',['Written answer grading',[['lenient','Lenient (small typos allowed)'],['exact','Exact'],['keyword','Keyword match']]])}
+<label class="block"><span class="block mb-1">Number of cards (0 = all)</span><input type="number" min="0" class="inp" value="${cfg.count}" onchange="cfg.count=+this.value||0;save()"></label>
+<button class="b1" onclick="startQuiz()">Start quiz</button></div>`}
+function build(cards,full,mast){let fm=mast?['mc','written','tf']:cfg.formats.length?cfg.formats:['mc'];let pool=shuffle(cards);if(full&&cfg.count>0)pool=pool.slice(0,cfg.count);
+ let other=fm.filter(f=>f!='match');const useM=fm.includes('match')&&pool.length>=2;if(!other.length&&!useM)other=['mc'];
+ const dirf=()=>cfg.dir=='mixed'?(Math.random()<.5?'td':'dt'):cfg.dir,qs=[];
+ if(useM){const src=pool.splice(0,other.length?Math.min(5,pool.length):pool.length),ch=[];for(let i=0;i<src.length;i+=5)ch.push(src.slice(i,i+5));if(ch.length>1&&ch[ch.length-1].length<2)ch[ch.length-2].push(...ch.pop());ch.forEach(c=>qs.push({k:'match',cards:c,dir:dirf()}))}
+ pool.forEach(c=>{const o=mast?other.filter(f=>!(c.fm||[]).includes(f)):other,pk=o.length?o:other;qs.push({k:pk[Math.random()*pk.length|0],c,dir:dirf()})});return shuffle(qs)}
+function startQuiz(cards){if(deck.length<2)return toast('Add at least 2 cards first','err');Q={qs:build(cards||deck,!cards),i:0,res:[]};show('quiz');renderQ()}
+function renderQ(){const q=Q.qs[Q.i],n=Q.qs.length;if(!q)return finish();q.done=false;$('#fb').innerHTML='';
+ $('#qh').innerHTML=`<div class="h-2 rounded bg-slate-200 dark:bg-slate-700 mb-3"><div class="h-2 rounded bg-blue-900 dark:bg-amber-400" style="width:${Q.i/n*100}%"></div></div><p class="text-sm opacity-70 mb-2">${Q.rem?'Mastery &amp; Remediation Round · ':''}Question ${Q.i+1} of ${n}</p>`;
+ const pr=`<p class="text-2xl font-semibold mb-5">${q.k=='match'?'Match each pair':esc(P(q.c,q.dir))}</p>`;let b=pr;
+ if(q.k=='mc'){const ans=A(q.c,q.dir);q.opts=shuffle([ans,...shuffle([...new Set(deck.filter(d=>d!==q.c).map(d=>A(d,q.dir)))].filter(a=>a!==ans)).slice(0,3)]);b+=`<div class="grid gap-3">${q.opts.map((o,i)=>`<button class="opt" onclick="ans(${i})"><b class="mr-3 opacity-60">${'ABCD'[i]}</b>${esc(o)}</button>`).join('')}</div>`}
+ else if(q.k=='tf'){const others=deck.filter(d=>d!==q.c&&A(d,q.dir)!==A(q.c,q.dir));q.isT=!others.length||Math.random()<.5;q.shown=q.isT?A(q.c,q.dir):A(others[Math.random()*others.length|0],q.dir);b+=`<p class="card mb-4">${esc(q.shown)}</p><div class="grid grid-cols-2 gap-3"><button class="opt" onclick="ansTF(true)">True</button><button class="opt" onclick="ansTF(false)">False</button></div>`}
+ else if(q.k=='written')b+=`<label for="wa" class="sr-only">Your answer</label><textarea id="wa" rows="2" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Write or type your answer" style="min-height:64px;font-size:1.25rem" class="w-full p-4 rounded-xl border-2 border-blue-700 bg-white dark:bg-slate-800"></textarea><button class="b1 mt-3" onclick="subW()">Check answer</button>`;
+ else b+=`<p class="mb-3 text-sm opacity-70">Tap a term, then its match — or drag a term onto its definition.</p><div class="grid grid-cols-2 gap-3"><div class="grid gap-3" id="ml"></div><div class="grid gap-3" id="mr"></div></div>`;
+ $('#qb').innerHTML=b+(q.k!='match'&&fbOn()?'<div class="mt-3"><button class="b2" onclick="hint()">Hint</button><span id="hn" class="ml-3"></span></div>':'');if(q.k=='match')renderMatch(q);if(q.k=='written')$('#wa').focus()}
+const fbOn=()=>Q.rem||cfg.mode!='summative';
+function fin(ok,given){const q=Q.qs[Q.i];q.done=true;Q.res.push({c:q.c,ok,given,k:q.k,dir:q.dir});rec(q.c,ok,q.k);
+ if(!fbOn()){next();return}
+ $('#fb').innerHTML=`<div id="fbm" class="mt-4 p-4 rounded-xl ${ok?'good':'bad'} border-2"><b>${ok?'Correct!':'Not quite.'}</b>${ok?'':`<p>Answer: ${esc(A(q.c,q.dir))}</p><p class="text-sm mt-1">Review: ${esc(q.c.term)} — ${esc(q.c.definition)}${q.c.competency?' (Competency: '+esc(q.c.competency)+')':''}. It returns in the Mastery Round.</p>`}${q.k=='tf'&&!q.isT?`<p>True statement: ${esc(P(q.c,q.dir))} → ${esc(A(q.c,q.dir))}</p>`:''}${!ok&&q.k=='written'?`<button class="b2 mt-2" onclick="ovr()">Override: Mark as Correct</button>`:''}</div><button class="b1 mt-4" onclick="next()">Next (Enter)</button>`}
+function ans(i){const q=Q.qs[Q.i];if(q.done)return;const ok=q.opts[i]==A(q.c,q.dir);if(fbOn())document.querySelectorAll('#qb .opt').forEach((b,j)=>{b.disabled=true;if(q.opts[j]==A(q.c,q.dir))b.classList.add('good');else if(j==i)b.classList.add('bad')});fin(ok,q.opts[i])}
+function ansTF(v){const q=Q.qs[Q.i];if(q.done)return;fin(v==q.isT,v?'True':'False')}
+function subW(){const q=Q.qs[Q.i];if(q.done)return;const g=$('#wa').value;$('#wa').disabled=true;fin(grade(g,A(q.c,q.dir),cfg.strict),g)}
+function ovr(){const r=Q.res[Q.res.length-1];r.ok=true;r.c.att--;rec(r.c,true,r.k);const m=$('#fbm');m.className='mt-4 p-4 rounded-xl good border-2';m.innerHTML='<b>Marked correct.</b>'}
+function next(){Q.i++;renderQ()}
+function renderMatch(q){q.right=shuffle(q.cards);q.m=new Set();q.bad=new Set();q.sel=null;
+ $('#ml').innerHTML=q.cards.map((c,i)=>`<button draggable="true" id="L${i}" class="opt">${esc(P(c,q.dir))}</button>`).join('');
+ $('#mr').innerHTML=q.right.map((c,j)=>`<button id="R${j}" class="opt">${esc(A(c,q.dir))}</button>`).join('');
+ q.cards.forEach((c,i)=>{const L=$('#L'+i);L.onclick=()=>{if(q.m.has(c))return;q.cards.forEach((_,k)=>$('#L'+k).classList.remove('sel'));q.sel=i;L.classList.add('sel')};L.ondragstart=e=>e.dataTransfer.setData('text',i)});
+ q.right.forEach((c,j)=>{const R=$('#R'+j);R.onclick=()=>q.sel!=null&&pair(q.sel,j);R.ondragover=e=>e.preventDefault();R.ondrop=e=>{e.preventDefault();pair(+e.dataTransfer.getData('text'),j)}})}
+function pair(li,j){const q=Q.qs[Q.i],c=q.cards[li],L=$('#L'+li),R=$('#R'+j);if(q.m.has(c)||R.disabled)return;
+ if(q.right[j]===c){[L,R].forEach(e=>{e.classList.remove('sel');e.classList.add('ok');e.disabled=true});q.m.add(c);q.sel=null;
+  if(q.m.size==q.cards.length){q.cards.forEach(x=>{const o=!q.bad.has(x);Q.res.push({c:x,ok:o,given:'',k:'match',dir:q.dir});rec(x,o,'match')});q.done=true;setTimeout(next,700)}}
+ else{q.bad.add(c);[L,R].forEach(e=>{e.classList.add('shake');setTimeout(()=>e.classList.remove('shake'),400)})}}
+document.addEventListener('keydown',e=>{if(!Q||$('#v-quiz').classList.contains('hidden'))return;const q=Q.qs[Q.i];if(!q)return;
+ if(e.key=='Enter'){if(q.done){e.preventDefault();next()}else if(q.k=='written'){e.preventDefault();subW()}return}
+ if(q.k=='mc'&&!q.done&&e.target.tagName!='TEXTAREA'){const x=Math.max('1234'.indexOf(e.key),'abcd'.indexOf(e.key.toLowerCase()));if(x>-1&&x<q.opts.length)ans(x)}});
+
+/* ---------- Results ---------- */
+function finish(){show('result');renderResult(true)}
+function renderResult(saveBest){const ok=Q.res.filter(r=>r.ok).length,t=Q.res.length,pct=t?ok/t*100:0,tg=transmute(pct),key=deck.length+':'+(deck[0]?.term||'');
+ if(saveBest&&!Q.rem&&Q.qs.length&&pct>(best[key]||0)){best[key]=Math.round(pct);save()}
+ const missed=Q.res.map((r,i)=>({...r,i})).filter(r=>!r.ok),left=deck.filter(c=>mst(c)!='Mastered').length,cg={},canOv=cfg.mode!='summative'||Q.rem;
+ Q.res.forEach(r=>{const g=cogGroup(r.c.cog||'Remembering');(cg[g]=cg[g]||[0,0])[1]++;if(r.ok)cg[g][0]++});
+ $('#v-result').innerHTML=`<h2 class="text-2xl font-semibold">${Q.rem?'Mastery round results':'Results'}</h2><p class="text-sm opacity-70">${cfg.mode=='summative'&&!Q.rem?'Summative (Assessment of Learning)':'Formative (Assessment for Learning)'}</p>
+<div class="card my-3"><p>Raw score: <b>${ok} / ${t}</b> · Percentage score: <b>${pct.toFixed(2)}%</b></p><p class="text-4xl font-bold my-2">${tg} <span class="text-xl">${descr(tg)}</span></p><p class="text-sm opacity-70">Transmuted grade per DepEd Order No. 8, s. 2015.</p>${tg<75?'<p class="mt-2 font-semibold">Remediation required: start the Mastery &amp; Remediation Round below.</p>':''}</div>
+<div class="card mb-3"><h3 class="font-semibold mb-1">By cognitive process</h3>${Object.entries(cg).map(([g,v])=>`<p>${g}: ${v[0]}/${v[1]} (${Math.round(v[0]/v[1]*100)}%)</p>`).join('')}</div>
+${missed.length?`<h3 class="font-semibold mb-2">Missed</h3><div class="grid gap-3 mb-4">${missed.map(r=>`<div class="card"><p class="font-semibold">${esc(r.c.term)}</p><p>${esc(r.c.definition)}</p>${r.given?`<p class="text-sm opacity-70">You answered: ${esc(r.given)}</p>`:''}${canOv&&r.k=='written'?`<button class="b2 mt-2" onclick="ovrR(${r.i})">Override: Mark as Correct</button>`:''}</div>`).join('')}</div>`:'<p class="mb-4">No missed items.</p>'}
+<div class="flex flex-wrap gap-2">${left?`<button class="b1" onclick="startMastery()">Mastery &amp; Remediation Round (${left} not yet mastered)</button>`:''}<button class="b2" onclick="startQuiz()">New quiz</button><button class="b2" onclick="itemReport()">Export Item Analysis CSV</button><button class="b2" onclick="show('setup')">Change settings</button><button class="b2" onclick="show('edit')">Edit deck</button></div>${left?'':'<p class="mt-4 font-semibold">100% mastery achieved: every item is Mastered.</p>'}`}
+function rec(c,ok,k){c.seen=true;c.att=(c.att||0)+1;c.fm=c.fm||[];if(ok){c.tc=(c.tc||0)+1;c.cor=(c.cor||0)+1;if(!c.fm.includes(k))c.fm.push(k)}else{c.cor=0;c.fm=[]}save()}
+function ovrR(i){const r=Q.res[i];r.ok=true;r.c.att--;rec(r.c,true,r.k);renderResult()}
+function hint(){const q=Q.qs[Q.i],a=A(q.c,q.dir);$('#hn').textContent='Starts with: '+a.slice(0,Math.max(1,Math.ceil(a.length/5)))+'…'}
+function startMastery(){const c=deck.filter(x=>mst(x)!='Mastered');if(!c.length)return toast('All cards are mastered!');Q={qs:build(c,false,true),i:0,res:[],rem:true};show('quiz');renderQ()}
+const q2=s=>'"'+String(s??'').replace(/"/g,'""')+'"';
+function expCSV(){dl('deck.csv','text/csv',deck.map(c=>[c.term,c.definition,c.competency||'',c.cog||'',c.quarter||''].map(q2).join(',')).join('\n'))}
+function itemReport(){const ok=Q.res.filter(r=>r.ok).length,t=Q.res.length,pct=t?ok/t*100:0,tg=transmute(pct),di=p=>p<=.2?'Very difficult':p<=.4?'Difficult':p<=.6?'Moderately difficult':p<=.8?'Easy':'Very easy';
+ const rows=[['Item analysis & mastery report'],['Mode',cfg.mode],['Raw score',ok+'/'+t],['Percentage score',pct.toFixed(2)],['Transmuted grade (DepEd Order 8, s. 2015)',tg],['Descriptor',descr(tg)],[],['No.','Item','Answer','Learning competency','Quarter','Cognitive process','Attempts','Correct','Difficulty index (p)','Interpretation','Mastery state']];
+ deck.forEach((c,i)=>{const a=c.att||0,p=a?(c.tc||0)/a:0;rows.push([i+1,c.term,c.definition,c.competency||'',c.quarter||'',c.cog||'',a,c.tc||0,a?p.toFixed(2):'',a?di(p):'Not yet attempted',mst(c)])});
+ dl('item-analysis.csv','text/csv',rows.map(r=>r.map(q2).join(',')).join('\n'))}
+function openSet(){$('#gk').value=cfg.gemini||'';$('#gc').value=cfg.gcid||'';$('#ga').value=cfg.gkey||'';$('#gp').value=cfg.gappid||'';$('#org').textContent=location.origin=='null'?'(Open this app from your GitHub Pages address to see its origin)':location.origin;$('#set').showModal()}
+function saveSet(){cfg.gemini=$('#gk').value.trim();cfg.gcid=$('#gc').value.trim();cfg.gkey=$('#ga').value.trim();cfg.gappid=$('#gp').value.trim();save();$('#set').close();toast('Settings saved')}
+async function drivePick(){if(!cfg.gcid||!cfg.gkey)return toast('Add your Google Client ID and API Key in Settings first (see the README).','err');
+ try{await lib('gsi');await lib('gapi');await new Promise(r=>gapi.load('picker',r));
+  google.accounts.oauth2.initTokenClient({client_id:cfg.gcid,scope:'https://www.googleapis.com/auth/drive.file',callback:t=>{if(t.error)return toast('Google sign-in failed: '+t.error,'err');
+   const pk=new google.picker.PickerBuilder().addView(new google.picker.DocsView().setIncludeFolders(true)).setOAuthToken(t.access_token).setDeveloperKey(cfg.gkey).setCallback(async d=>{if(d.action!='picked')return;try{await driveGet(d.docs[0],t.access_token)}catch(e){toast('Could not download that file: '+(e.message||e),'err')}});
+   if(cfg.gappid)pk.setAppId(cfg.gappid);pk.build().setVisible(true)}}).requestAccessToken()}
+ catch(e){toast('Google services could not load: '+(e.message||e),'err')}}
+async function driveGet(f,tok){const B='https://www.googleapis.com/drive/v3/files/'+f.id,H={headers:{Authorization:'Bearer '+tok}},m=f.mimeType,doc=m=='application/vnd.google-apps.document',sh=m=='application/vnd.google-apps.spreadsheet';
+ const r=await fetch(doc?B+'/export?mimeType=text/plain':sh?B+'/export?mimeType=text/csv':B+'?alt=media',H);if(!r.ok)throw new Error('HTTP '+r.status);
+ await handleFiles([new File([await r.blob()],doc?f.name+'.txt':sh?f.name+'.csv':f.name)])}
+let SL=[];
+const base=()=>location.href.split('#')[0];
+const mk=a=>base()+'#deck='+LZString.compressToEncodedURIComponent(JSON.stringify(a.map(c=>({term:c.term,definition:c.definition,competency:c.competency,cog:c.cog,quarter:c.quarter}))));
+function sendLink(u){if(navigator.share)navigator.share({title:'QuizForge PH quiz',url:u}).catch(()=>{});else navigator.clipboard.writeText(u).then(()=>toast('Quiz link copied. Send it to classmates.'),()=>prompt('Copy this link:',u))}
+function shareLink(){if(!deck.length)return toast('Add cards first','err');SL=splitDeck(deck,a=>mk(a).length,7000).map(a=>[mk(a),a.length]);
+ if(SL.length==1)return sendLink(SL[0][0]);
+ $('#shl').innerHTML=SL.map((l,i)=>`<div class="flex items-center justify-between gap-2"><span>Part ${i+1} of ${SL.length} (${l[1]} cards)</span><button class="b2" onclick="sendLink(SL[${i}][0])">Share</button></div>`).join('');$('#sh').showModal()}
+function copyText(){const t=deck.map(c=>c.term+' - '+c.definition).join('\n');navigator.clipboard.writeText(t).then(()=>toast('Copied as text. Paste it anywhere, or into Import.'),()=>prompt('Copy this text:',t))}
+function copySheet(){const t=deck.map(c=>[c.term,c.definition,c.competency||'',c.cog||'',c.quarter||''].map(x=>String(x).replace(/[\t\r\n]+/g,' ')).join('\t')).join('\n');navigator.clipboard.writeText(t).then(()=>toast('Copied. Open a Google Sheet, tap cell A1 and paste.'),()=>prompt('Copy this:',t))}
+function printDeck(){if(!deck.length)return toast('Add cards first','err');$('#pr').innerHTML='<h1>QuizForge PH deck</h1><table border="1" cellpadding="6" style="border-collapse:collapse;width:100%"><tr><th>Term</th><th>Definition</th><th>Competency</th><th>Quarter</th><th>Cognitive process</th></tr>'+deck.map(c=>`<tr><td>${esc(c.term)}</td><td>${esc(c.definition)}</td><td>${esc(c.competency||'')}</td><td>${esc(c.quarter||'')}</td><td>${esc(c.cog||'')}</td></tr>`).join('')+'</table>';print()}
+async function sheetSave(){if(!cfg.gcid)return toast('Add your Google Client ID in Settings first, or use “Copy for Google Sheets”.','err');if(!deck.length)return toast('Add cards first','err');
+ try{await lib('gsi');google.accounts.oauth2.initTokenClient({client_id:cfg.gcid,scope:'https://www.googleapis.com/auth/drive.file',callback:async t=>{if(t.error)return toast('Google sign-in failed: '+t.error,'err');
+  try{const csv=deck.map(c=>[c.term,c.definition,c.competency||'',c.cog||'',c.quarter||''].map(q2).join(',')).join('\n'),b='qfb',body=`--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({name:'QuizForge deck',mimeType:'application/vnd.google-apps.spreadsheet'})}\r\n--${b}\r\nContent-Type: text/csv\r\n\r\n${csv}\r\n--${b}--`;
+  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=webViewLink',{method:'POST',headers:{Authorization:'Bearer '+t.access_token,'Content-Type':'multipart/related; boundary='+b},body});
+  if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();toast('Saved to your Google Drive as “QuizForge deck”.');window.open(j.webViewLink,'_blank')}catch(e){toast('Could not save to Drive: '+(e.message||e),'err')}}}).requestAccessToken()}
+ catch(e){toast('Google services could not load: '+(e.message||e),'err')}}
+(function(){const m=location.hash.match(/^#deck=(.+)/);if(!m||typeof LZString=='undefined')return;try{const d=JSON.parse(LZString.decompressFromEncodedURIComponent(m[1]));if(Array.isArray(d)&&d.length&&confirm('Add the '+d.length+' shared cards to your deck?')){deck=deck.concat(d.filter(x=>x.term&&x.definition&&!deck.some(e=>e.term.toLowerCase()==String(x.term).toLowerCase())).map(x=>({term:x.term,definition:x.definition,competency:x.competency||'',cog:x.cog||'Remembering',quarter:x.quarter||''})));save();history.replaceState(null,'',location.pathname);show('setup')}}catch{toast('That shared link is damaged.','err')}})();
+</script>
+</body>
+</html>
